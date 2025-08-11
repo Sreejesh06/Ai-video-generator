@@ -1,4 +1,4 @@
-# app.py (v4.4 - Fixed the video.read() unpack error)
+# app.py (v4.5 - Proof-of-Concept: Limited to 10 scenes)
 
 import requests
 import tempfile
@@ -17,7 +17,7 @@ COLOR_PALETTE_SIZE = 5
 OCR_CONFIDENCE_THRESHOLD = 65
 MOTION_THRESHOLD = 1.0
 
-# --- HELPER FUNCTIONS (No changes) ---
+# --- HELPER FUNCTIONS ---
 
 def analyze_colors(frame, k=COLOR_PALETTE_SIZE):
     try:
@@ -91,15 +91,20 @@ def analyze_video_endpoint():
             print("Analyzing each scene for details...")
             analyzed_scenes, prev_frame = [], None
             for i, scene in enumerate(scene_list):
+                # ---- THE NEW CHANGE TO PREVENT TIMEOUTS ON FREE TIER ----
+                if i >= 10:
+                    print("Limiting analysis to first 10 scenes for free tier.")
+                    break # Stop the loop
+                # -----------------------------------------------------------
+
                 start_time, end_time = scene[0], scene[1]
                 
-                # ---- THE FIXED FRAME READING LOGIC ----
                 middle_frame_num = int((start_time.get_frames() + end_time.get_frames()) / 2)
                 video.seek(middle_frame_num)
-                middle_frame = video.read() # Assign to one variable
+                middle_frame = video.read()
                 
                 video.seek(start_time.get_frames())
-                curr_frame = video.read() # Assign to one variable
+                curr_frame = video.read()
 
                 scene_data = {
                     "scene_number": i + 1,
@@ -108,12 +113,12 @@ def analyze_video_endpoint():
                     "dominant_colors": [], "shot_type": "unknown", "text_overlays": [], "camera_motion": "static"
                 }
                 
-                if middle_frame is not None: # Check if the frame is valid before using it
+                if middle_frame is not None:
                     scene_data["dominant_colors"] = analyze_colors(middle_frame)
                     scene_data["shot_type"] = analyze_shot_type(middle_frame, face_cascade)
                     scene_data["text_overlays"] = analyze_text_overlays(middle_frame)
 
-                if curr_frame is not None: # Check if the frame is valid
+                if curr_frame is not None:
                     scene_data["camera_motion"] = analyze_motion(prev_frame, curr_frame)
 
                 analyzed_scenes.append(scene_data)
