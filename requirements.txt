@@ -1,0 +1,8 @@
+Flask
+requests
+scenedetect
+opencv-python
+scikit-learn
+numpy
+pytesseract
+gunicorn
