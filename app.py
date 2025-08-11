@@ -1,4 +1,4 @@
-# app.py (v4.5 - Proof-of-Concept: Limited to 10 scenes)
+# app.py (v4.6 - The Correct Fix: Limiting Analysis at the Source)
 
 import requests
 import tempfile
@@ -16,8 +16,10 @@ from scenedetect.detectors import ContentDetector, ThresholdDetector
 COLOR_PALETTE_SIZE = 5
 OCR_CONFIDENCE_THRESHOLD = 65
 MOTION_THRESHOLD = 1.0
+# ---- NEW: The hard limit on how many seconds of video to process ----
+ANALYSIS_DURATION_LIMIT = 30.0 # Process only the first 30 seconds
 
-# --- HELPER FUNCTIONS ---
+# --- HELPER FUNCTIONS (No changes) ---
 
 def analyze_colors(frame, k=COLOR_PALETTE_SIZE):
     try:
@@ -79,24 +81,22 @@ def analyze_video_endpoint():
             
             video_path = temp_video_file.name
             
-            print("Detecting scenes...")
+            print(f"Detecting scenes for the first {ANALYSIS_DURATION_LIMIT} seconds...")
             video = open_video(video_path)
             scene_manager = SceneManager()
             scene_manager.add_detector(ContentDetector())
             scene_manager.add_detector(ThresholdDetector())
-            scene_manager.detect_scenes(video=video)
+            
+            # ---- THE CORRECT FIX: Limit the scene detection itself ----
+            scene_manager.detect_scenes(video=video, end_time=ANALYSIS_DURATION_LIMIT)
+            
             scene_list = scene_manager.get_scene_list()
-            print(f"Found {len(scene_list)} scenes.")
+            print(f"Found {len(scene_list)} scenes in the analyzed duration.")
 
             print("Analyzing each scene for details...")
             analyzed_scenes, prev_frame = [], None
             for i, scene in enumerate(scene_list):
-                # ---- THE NEW CHANGE TO PREVENT TIMEOUTS ON FREE TIER ----
-                if i >= 10:
-                    print("Limiting analysis to first 10 scenes for free tier.")
-                    break # Stop the loop
-                # -----------------------------------------------------------
-
+                # The previous `if i >= 10: break` is no longer needed.
                 start_time, end_time = scene[0], scene[1]
                 
                 middle_frame_num = int((start_time.get_frames() + end_time.get_frames()) / 2)
